@@ -1,0 +1,7 @@
+=== RESULTATS FINAUX ===
+GCN_4096points_256latent {'chamfer_mean': 2.540233208404647, 'chamfer_std': 0.43300235579441254, 'mse_mean': 343.9592663305777, 'mse_std': 127.74741666096592}
+GCN_4096points_128latent {'chamfer_mean': 2.5942304894328116, 'chamfer_std': 0.47856825754123206, 'mse_mean': 342.72842106289335, 'mse_std': 129.36781490002565}
+GCN_2048points_256latent {'chamfer_mean': 2.8726027149845055, 'chamfer_std': 0.42273688143944893, 'mse_mean': 355.2216541290283, 'mse_std': 132.01301755503505}
+GCN_2048points_128latent {'chamfer_mean': 2.940561478888547, 'chamfer_std': 0.4426613140316496, 'mse_mean': 351.6621235812152, 'mse_std': 132.11579297638312}
+GCN_1024points_256latent {'chamfer_mean': 3.481949239196601, 'chamfer_std': 0.5635512457003744, 'mse_mean': 366.80953796528, 'mse_std': 140.18182328038029}
+GCN_1024points_128latent {'chamfer_mean': 3.5320399545960957, 'chamfer_std': 0.5703030430241931, 'mse_mean': 367.38064260129573, 'mse_std': 139.63617156195366}

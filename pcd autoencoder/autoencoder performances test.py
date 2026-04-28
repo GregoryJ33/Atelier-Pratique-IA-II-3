@@ -4,8 +4,8 @@ import numpy as np
 import open3d as o3d
 import glob
 import os
+import json
 from torch_geometric.nn import GCNConv, knn_graph
-
 
 # =========================
 # MODELES
@@ -161,8 +161,23 @@ class PointTransformerAE(nn.Module):
 
 
 # =========================
+# METRIQUES
+# =========================
+
+def chamfer_distance(pc1, pc2):
+    pc1 = pc1.unsqueeze(1)
+    pc2 = pc2.unsqueeze(0)
+
+    dist = torch.norm(pc1 - pc2, dim=2)
+
+    cd = dist.min(dim=1)[0].mean() + dist.min(dim=0)[0].mean()
+    return cd
+
+
+# =========================
 # LOAD PCD
 # =========================
+
 def load_pcd(path, num_points):
     pcd = o3d.io.read_point_cloud(path)
     pts = np.asarray(pcd.points)
@@ -170,32 +185,22 @@ def load_pcd(path, num_points):
     if len(pts) == 0:
         pts = np.zeros((num_points, 3))
 
+    # seed déterministe basé sur le fichier
+    seed = abs(hash(path)) % (2**32)
+    rng = np.random.default_rng(seed)
+
     if len(pts) >= num_points:
-        choice = np.random.choice(len(pts), num_points, replace=False)
+        choice = rng.choice(len(pts), num_points, replace=False)
     else:
-        choice = np.random.choice(len(pts), num_points, replace=True)
+        choice = rng.choice(len(pts), num_points, replace=True)
 
     return torch.tensor(pts[choice], dtype=torch.float32)
 
 
 # =========================
-# VISUALISATION
-# =========================
-def visualize(original, reconstructed):
-    pcd1 = o3d.geometry.PointCloud()
-    pcd1.points = o3d.utility.Vector3dVector(original)
-    pcd1.paint_uniform_color([1, 0, 0])
-
-    pcd2 = o3d.geometry.PointCloud()
-    pcd2.points = o3d.utility.Vector3dVector(reconstructed)
-    pcd2.paint_uniform_color([0, 1, 0])
-
-    o3d.visualization.draw_geometries([pcd1, pcd2])
-
-
-# =========================
 # LOAD MODEL
 # =========================
+
 def load_model(path, device, model_type):
     checkpoint = torch.load(path, map_location=device)
 
@@ -217,62 +222,79 @@ def load_model(path, device, model_type):
 
 
 # =========================
-# INFERENCE + LATENTS
+# EVALUATION
 # =========================
-def run_inference(model, input_folder, output_folder, device):
 
-    os.makedirs(output_folder, exist_ok=True)
+def evaluate_model(model, input_folder, device):
 
     pcd_paths = glob.glob(input_folder + "/**/*.pcd", recursive=True)
     pcd_paths.sort()
 
-    print(f"{len(pcd_paths)} fichiers trouvés")
+    chamfer_scores = []
+    mse_scores = []
 
-    all_latents = []
-
-    for i, path in enumerate(pcd_paths):
+    for path in pcd_paths:
 
         pts = load_pcd(path, model.num_points)
         pts = pts.unsqueeze(0).to(device)
 
         with torch.no_grad():
-            recon, latent = model(pts, return_latent=True)
+            recon = model(pts)
 
-        pts_np = pts.squeeze(0).cpu().numpy()
-        recon_np = recon.squeeze(0).cpu().numpy()
-        latent_np = latent.squeeze(0).cpu().numpy()
+        pts = pts.squeeze(0)
+        recon = recon.squeeze(0)
 
-        # sauvegarde latent individuel
-        filename = os.path.basename(path).replace(".pcd", ".npy")
-        np.save(os.path.join(output_folder, filename), latent_np)
+        cd = chamfer_distance(pts, recon)
+        chamfer_scores.append(cd.item())
 
-        all_latents.append(latent_np)
+        mse = torch.mean((pts - recon) ** 2)
+        mse_scores.append(mse.item())
 
-        # visualisation (1 sur 50)
-        # if i % 50 == 0:
-        #     print(f"{i}/{len(pcd_paths)} traité")
-        #     visualize(pts_np, recon_np)
-
-    # sauvegarde globale
-    all_latents = np.array(all_latents)
-    np.save(os.path.join(output_folder, "all_latents.npy"), all_latents)
+    return {
+        "chamfer_mean": float(np.mean(chamfer_scores)),
+        "chamfer_std": float(np.std(chamfer_scores)),
+        "mse_mean": float(np.mean(mse_scores)),
+        "mse_std": float(np.std(mse_scores)),
+    }
 
 
-
-GCN = "GCN"
-TRANSFORMER = "TRANSFORMER"
 # =========================
 # MAIN
 # =========================
+
 if __name__ == "__main__":
 
-    CHECKPOINT_PATH = "checkpoint_GCN_4096points_256latent_35epochs.pth"
     INPUT_FOLDER = r"E:\PAIR360\Traversal2\College_of_Physical_Education"
-    OUTPUT_FOLDER = r".\latents"
 
+    checkpoints = {
+        "GCN_4096points_256latent": ("checkpoint_GCN_4096points_256latent_100epochs.pth", "GCN"),
+        "GCN_4096points_128latent": ("checkpoint_GCN_4096points_128latent_100epochs.pth", "GCN"),
+        "GCN_2048points_256latent": ("checkpoint_GCN_2048points_256latent_100epochs.pth", "GCN"),
+        "GCN_2048points_128latent": ("checkpoint_GCN_2048points_128latent_100epochs.pth", "GCN"),
+        "GCN_1024points_256latent": ("checkpoint_GCN_1024points_256latent_100epochs.pth", "GCN"),
+        "GCN_1024points_128latent": ("checkpoint_GCN_1024points_128latent_100epochs.pth", "GCN"),
+    }
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = load_model(CHECKPOINT_PATH, device, model_type=GCN)
+    results = {}
 
-    run_inference(model, INPUT_FOLDER, OUTPUT_FOLDER, device)
+    for name, (path, model_type) in checkpoints.items():
+
+        print(f"\n=== Evaluation {name} ===")
+
+        model = load_model(path, device, model_type)
+
+        stats = evaluate_model(model, INPUT_FOLDER, device)
+
+        results[name] = stats
+
+        print(stats)
+
+    print("\n=== RESULTATS FINAUX ===")
+    for k, v in results.items():
+        print(k, v)
+
+    # sauvegarde
+    with open("results.json", "w") as f:
+        json.dump(results, f, indent=4)

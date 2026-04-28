@@ -348,7 +348,7 @@ if __name__ == "__main__":
         r"E:\PAIR360\Traversal2\Central_Library",
     ]
 
-    EPOCHS = 35
+    EPOCHS = 100
     NUM_POINTS_ARRAY = [4096]
     LATENT_DIM_ARRAY = [128, 256]
 
