@@ -4,6 +4,8 @@ import numpy as np
 import open3d as o3d
 import glob
 import os
+
+from matplotlib import pyplot as plt
 from torch_geometric.nn import GCNConv, knn_graph
 
 
@@ -182,15 +184,39 @@ def load_pcd(path, num_points):
 # VISUALISATION
 # =========================
 def visualize(original, reconstructed):
+
+    # ORIGINAL
     pcd1 = o3d.geometry.PointCloud()
     pcd1.points = o3d.utility.Vector3dVector(original)
-    pcd1.paint_uniform_color([1, 0, 0])
+    pcd1 = colorize_by_height(pcd1)
 
+    print("Affichage ORIGINAL")
+    o3d.visualization.draw_geometries([pcd1])
+
+    # RECONSTRUCTION
     pcd2 = o3d.geometry.PointCloud()
     pcd2.points = o3d.utility.Vector3dVector(reconstructed)
-    pcd2.paint_uniform_color([0, 1, 0])
+    pcd2 = colorize_by_height(pcd2)
 
-    o3d.visualization.draw_geometries([pcd1, pcd2])
+    print("Affichage RECONSTRUCTION")
+    o3d.visualization.draw_geometries([pcd2])
+
+
+def colorize_by_height(pcd):
+    points = np.asarray(pcd.points)
+
+    if points.shape[0] == 0:
+        return pcd
+
+    z = points[:, 2]
+
+    z_min, z_max = z.min(), z.max()
+    z_norm = (z - z_min) / (z_max - z_min + 1e-8)
+
+    colors = plt.cm.viridis(z_norm)[:, :3]
+
+    pcd.colors = o3d.utility.Vector3dVector(colors)
+    return pcd
 
 
 # =========================
@@ -243,15 +269,15 @@ def run_inference(model, input_folder, output_folder, device):
         latent_np = latent.squeeze(0).cpu().numpy()
 
         # sauvegarde latent individuel
-        filename = os.path.basename(path).replace(".pcd", ".npy")
-        np.save(os.path.join(output_folder, filename), latent_np)
+        # filename = os.path.basename(path).replace(".pcd", ".npy")
+        # np.save(os.path.join(output_folder, filename), latent_np)
 
-        all_latents.append(latent_np)
+        # all_latents.append(latent_np)
 
         # visualisation (1 sur 50)
-        # if i % 50 == 0:
-        #     print(f"{i}/{len(pcd_paths)} traité")
-        #     visualize(pts_np, recon_np)
+        if i % 50 == 0:
+            print(f"{i}/{len(pcd_paths)} traité")
+            visualize(pts_np, recon_np)
 
     # sauvegarde globale
     # all_latents = np.array(all_latents)
@@ -267,7 +293,7 @@ TRANSFORMER = "TRANSFORMER"
 if __name__ == "__main__":
 
     CHECKPOINT_PATH = "checkpoint_GCN_4096points_256latent_100epochs.pth"
-    INPUT_FOLDER = r"E:\PAIR360\Traversal2\College_of_Life_Science\3"
+    INPUT_FOLDER = r"E:\PAIR360\Traversal2\College_of_Life_Science\Sequence3"
     OUTPUT_FOLDER = r".\latents"
 
 

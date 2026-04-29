@@ -1,9 +1,11 @@
 1st_Dormitory : train/validation pour autoencodeur pcd
 2nd_dormitory : train/validation pour autoencodeur pcd
 Central_Library : train/validation pour autoencodeur pcd
-
+Total : 10 602
 
 College_of_Engineering : train/validation pour encodeur image vers état latent
 College_of_Life_Science : train/validation pour encodeur image vers état latent
+Total : 8 997
 
 College_of_Physical_Education : test pour un peu tout
+Total : 2160

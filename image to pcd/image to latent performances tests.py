@@ -233,6 +233,7 @@ class Pair360Dataset(Dataset):
                 continue
 
             df = pd.read_csv(cam_file)
+            df = df.head(100)
 
             # Trouver les dossiers automatiquement
             stitching_dir = None
@@ -432,9 +433,9 @@ def main():
             f"COS: {m['cosine']:.6f}"
         )
 
-    save_results(results, "evaluation_results.txt")
+    # save_results(results, "evaluation_results.txt")
 
-    print("\nRésultats sauvegardés dans evaluation_results.txt")
+    # print("\nRésultats sauvegardés dans evaluation_results.txt")
 
 
 if __name__ == "__main__":
